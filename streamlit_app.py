@@ -1,40 +1,66 @@
-import altair as alt
-import numpy as np
-import pandas as pd
 import streamlit as st
+import tensorflow as tf
+from tensorflow.keras.datasets import mnist
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense, Flatten
+from tensorflow.keras.utils import to_categorical
+import matplotlib.pyplot as plt
 
-"""
-# Welcome to Streamlit!
+# Title of the app
+st.title("MNIST Digit Classifier Training")
 
-Edit `/streamlit_app.py` to customize this app to your heart's desire :heart:.
-If you have any questions, checkout our [documentation](https://docs.streamlit.io) and [community
-forums](https://discuss.streamlit.io).
+# Description
+st.write("""
+This app trains a neural network on the MNIST dataset and displays the training process.
+""")
 
-In the meantime, below is an example of what you can do with just a few lines of code:
-"""
+# Load MNIST data
+st.write("Loading MNIST dataset...")
+(x_train, y_train), (x_test, y_test) = mnist.load_data()
+x_train, x_test = x_train / 255.0, x_test / 255.0
 
-num_points = st.slider("Number of points in spiral", 1, 10000, 1100)
-num_turns = st.slider("Number of turns in spiral", 1, 300, 31)
+# Display a few sample images
+st.write("Sample images from the dataset:")
+fig, axes = plt.subplots(1, 5, figsize=(10, 2))
+for i in range(5):
+    axes[i].imshow(x_train[i], cmap='gray')
+    axes[i].axis('off')
+st.pyplot(fig)
 
-indices = np.linspace(0, 1, num_points)
-theta = 2 * np.pi * num_turns * indices
-radius = indices
+# Prepare labels
+y_train = to_categorical(y_train, 10)
+y_test = to_categorical(y_test, 10)
 
-x = radius * np.cos(theta)
-y = radius * np.sin(theta)
+# Build the model
+model = Sequential([
+    Flatten(input_shape=(28, 28)),
+    Dense(128, activation='relu'),
+    Dense(10, activation='softmax')
+])
 
-df = pd.DataFrame({
-    "x": x,
-    "y": y,
-    "idx": indices,
-    "rand": np.random.randn(num_points),
-})
+# Compile the model
+model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
 
-st.altair_chart(alt.Chart(df, height=700, width=700)
-    .mark_point(filled=True)
-    .encode(
-        x=alt.X("x", axis=None),
-        y=alt.Y("y", axis=None),
-        color=alt.Color("idx", legend=None, scale=alt.Scale()),
-        size=alt.Size("rand", legend=None, scale=alt.Scale(range=[1, 150])),
-    ))
+# Display model summary
+st.write("Model Summary:")
+model.summary(print_fn=lambda x: st.text(x))
+
+# Train the model
+epochs = st.slider("Select number of epochs:", 1, 10, 5)
+st.write("Training the model...")
+
+history = model.fit(x_train, y_train, epochs=epochs, validation_data=(x_test, y_test), verbose=2)
+
+# Plot training history
+st.write("Training and Validation Accuracy")
+fig, ax = plt.subplots()
+ax.plot(history.history['accuracy'], label='Train Accuracy')
+ax.plot(history.history['val_accuracy'], label='Validation Accuracy')
+ax.set_xlabel('Epoch')
+ax.set_ylabel('Accuracy')
+ax.legend()
+st.pyplot(fig)
+
+# Display test accuracy
+test_loss, test_acc = model.evaluate(x_test, y_test, verbose=2)
+st.write(f"Test Accuracy: {test_acc:.4f}")
